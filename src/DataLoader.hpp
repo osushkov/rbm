@@ -6,5 +6,7 @@
 #include "rbm/TrainingSample.hpp"
 
 namespace DataLoader {
-vector<TrainingSample> loadSamples(string inImagePath, string inLabelPath, bool genDerived);
+
+// Loads the training samples from the given digits files.
+vector<TrainingSample> loadSamples(string inImagePath);
 }
