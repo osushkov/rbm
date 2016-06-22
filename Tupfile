@@ -1,0 +1,2 @@
+include_rules
+: src/*.o src/image/image.a src/rbm/rbm.a src/common/common.a |> $(CC) %f -o %o $(CLFLAGS) |> rbm
