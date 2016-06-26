@@ -4,6 +4,6 @@
 #include <vector>
 
 namespace Util {
-double RandInterval(double s, double e);
-double GaussianSample(double mean, double sd);
+float RandInterval(float s, float e);
+float GaussianSample(float mean, float sd);
 }

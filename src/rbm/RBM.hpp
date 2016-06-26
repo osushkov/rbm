@@ -8,10 +8,14 @@ public:
   RBM(unsigned visibleSize, unsigned hiddenSize);
   virtual ~RBM();
 
-  Vector ComputeHidden(const Vector &visible);
-  Vector ComputeVisible(const Vector &hidden);
+  Matrix ComputeHidden(const Matrix &visibleBatch);
+  Matrix ComputeVisible(const Matrix &hiddenBatch);
 
   void ApplyUpdate(const Matrix &weightsDelta);
+
+  unsigned NumVisibleUnits(void) const;
+  unsigned NumHiddenUnits(void) const;
+  Matrix GetWeights(void) const;
 
 private:
   struct RBMImpl;
