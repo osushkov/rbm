@@ -11,6 +11,8 @@ public:
   Matrix ComputeHidden(const Matrix &visibleBatch);
   Matrix ComputeVisible(const Matrix &hiddenBatch);
 
+  float Energy(const Vector &visible, const Vector &hidden);
+
   void ApplyUpdate(const Matrix &weightsDelta);
 
   unsigned NumVisibleUnits(void) const;

@@ -52,6 +52,29 @@ struct RBM::RBMImpl {
     return visibleValues;
   }
 
+  float Energy(const Vector &visible, const Vector &hidden) {
+    assert(weights.rows() == hidden.rows() + 1);
+    assert(weights.cols() == visible.rows() + 1);
+
+    float energy = 0.0f;
+
+    for (int i = 0; i < visible.rows(); i++) {
+      energy -= weights(weights.rows() - 1, i) * visible(i);
+    }
+
+    for (int i = 0; i < hidden.rows(); i++) {
+      energy -= weights(i, weights.cols() - 1) * hidden(i);
+    }
+
+    for (int c = 0; c < weights.cols() - 1; c++) {
+      for (int r = 0; r < weights.rows() - 1; r++) {
+        energy -= weights(r, c) * visible(c) * hidden(r);
+      }
+    }
+
+    return energy;
+  }
+
   void ApplyUpdate(const Matrix &weightsDelta) {
     assert(weightsDelta.rows() == weights.rows());
     assert(weightsDelta.cols() == weights.cols());
@@ -92,6 +115,10 @@ RBM::~RBM() = default;
 
 Matrix RBM::ComputeHidden(const Matrix &visibleBatch) { return impl->ComputeHidden(visibleBatch); }
 Matrix RBM::ComputeVisible(const Matrix &hiddenBatch) { return impl->ComputeVisible(hiddenBatch); }
+
+float RBM::Energy(const Vector &visible, const Vector &hidden) {
+  return impl->Energy(visible, hidden);
+}
 
 void RBM::ApplyUpdate(const Matrix &weightsDelta) { impl->ApplyUpdate(weightsDelta); }
 
