@@ -9,7 +9,7 @@
 #include <vector>
 
 static constexpr unsigned INPUT_SIZE = (28 * 28) + 10;
-static constexpr unsigned HIDDEN_LAYER_SIZE = 128;
+static constexpr unsigned HIDDEN_LAYER_SIZE = 256;
 static constexpr unsigned BATCH_SIZE = 50;
 
 static unsigned numCompletePasses = 0;
@@ -25,6 +25,56 @@ static TrainingProvider getStochasticSamples(vector<TrainingSample> &allSamples,
                                              unsigned totalIters);
 
 static void renderHiddenNodes(RBM *network);
+
+unsigned getRBMLabel(RBM *network, const TrainingSample &sample) {
+  float minEnergy = 0.0f;
+  unsigned minLabel = 0;
+
+  for (unsigned label = 0; label < 10; label++) {
+    Matrix visible(INPUT_SIZE, 1);
+    visible.fill(0.0f);
+
+    for (int i = 0; i < sample.input.rows(); i++) {
+      visible(i, 0) = sample.input(i);
+    }
+
+    visible(label + sample.input.rows(), 0) = 1.0f;
+
+    Matrix hidden = network->ComputeHidden(visible);
+    float energy = network->Energy(visible, hidden);
+
+    if (label == 0 || energy < minEnergy) {
+      minEnergy = energy;
+      minLabel = label;
+    }
+  }
+
+  return minLabel;
+}
+
+unsigned getSampleLabel(const TrainingSample &sample) {
+  for (unsigned i = 0; i < sample.label.rows(); i++) {
+    if (sample.label(i) > 0.5f) {
+      return i;
+    }
+  }
+  return 0;
+}
+
+void testAccuracy(RBM *network, const vector<TrainingSample> &testSamples) {
+  unsigned correct = 0;
+  unsigned incorrect = 0;
+
+  for (const auto &ts : testSamples) {
+    if (getSampleLabel(ts) == getRBMLabel(network, ts)) {
+      correct++;
+    } else {
+      incorrect++;
+    }
+  }
+
+  cout << (correct / static_cast<float>(correct + incorrect)) << endl;
+}
 
 Matrix getBatchMatrixWithBias(const Matrix &noBias) {
   Matrix result(noBias.rows() + 1, noBias.cols());
@@ -52,6 +102,9 @@ pair<Matrix, Matrix> gibbsSample(RBM *network, Matrix startVisible, unsigned ite
 }
 
 void train(RBM *network, vector<TrainingSample> samples, unsigned iters) {
+  vector<TrainingSample> testSamples =
+      DataLoader::loadSamples("data/test_images.idx3", "data/test_labels.idx1");
+
   static constexpr float INITIAL_LEARN_RATE = 0.01f;
   static constexpr float TARGET_LEARN_RATE = 0.00001f;
   float learnRateDecay =
@@ -65,9 +118,9 @@ void train(RBM *network, vector<TrainingSample> samples, unsigned iters) {
     auto positive = gibbsSample(network, batchVisible, 1);
 
     if (i == 0) {
-      negative = gibbsSample(network, batchVisible, 5);
+      negative = gibbsSample(network, batchVisible, 3);
     } else {
-      negative = gibbsSample(network, negative.first, 5);
+      negative = gibbsSample(network, negative.first, 3);
     }
 
     Matrix positiveVisible = getBatchMatrixWithBias(positive.first);
@@ -83,8 +136,9 @@ void train(RBM *network, vector<TrainingSample> samples, unsigned iters) {
     float learnRate = INITIAL_LEARN_RATE * powf(learnRateDecay, i);
     network->ApplyUpdate(gradient * learnRate);
 
-    if (i % 100 == 0) {
-      cout << "iter: " << i << endl;
+    if (i % 1000 == 0) {
+//      cout << "iter: " << i << endl;
+      testAccuracy(network, testSamples);
     }
   }
 }
@@ -143,60 +197,7 @@ void renderHiddenNodes(RBM *network) {
   }
 }
 
-unsigned getRBMLabel(RBM *network, const TrainingSample &sample) {
-  float minEnergy = 0.0f;
-  unsigned minLabel = 0;
 
-  for (unsigned label = 0; label < 10; label++) {
-    Matrix visible(INPUT_SIZE, 1);
-    visible.fill(0.0f);
-
-    for (int i = 0; i < sample.input.rows(); i++) {
-      visible(i, 0) = sample.input(i);
-    }
-
-    visible(label + sample.input.rows(), 0) = 1.0f;
-
-    Matrix hidden = network->ComputeHidden(visible);
-    float energy = network->Energy(visible, hidden);
-
-    if (label == 0 || energy < minEnergy) {
-      minEnergy = energy;
-      minLabel = label;
-    }
-  }
-
-  return minLabel;
-}
-
-unsigned getSampleLabel(const TrainingSample &sample) {
-  for (unsigned i = 0; i < sample.label.rows(); i++) {
-    if (sample.label(i) > 0.5f) {
-      return i;
-    }
-  }
-  return 0;
-}
-
-void testAccuracy(RBM *network) {
-  vector<TrainingSample> testSamples =
-      DataLoader::loadSamples("data/test_images.idx3", "data/test_labels.idx1");
-  cout << "test data size: " << testSamples.size() << endl;
-
-  unsigned correct = 0;
-  unsigned incorrect = 0;
-
-  for (const auto &ts : testSamples) {
-    if (getSampleLabel(ts) == getRBMLabel(network, ts)) {
-      correct++;
-    } else {
-      incorrect++;
-    }
-  }
-
-  cout << "correct percentage: " << (100.0f * (correct / static_cast<float>(correct + incorrect)))
-       << endl;
-}
 
 int main(int argc, char **argv) {
   cout << "loading training data" << endl;
@@ -205,12 +206,16 @@ int main(int argc, char **argv) {
   random_shuffle(trainingSamples.begin(), trainingSamples.end());
   cout << "training data size: " << trainingSamples.size() << endl;
 
-  auto network = make_unique<RBM>(INPUT_SIZE, HIDDEN_LAYER_SIZE);
-  testAccuracy(network.get());
+  vector<TrainingSample> testSamples =
+      DataLoader::loadSamples("data/test_images.idx3", "data/test_labels.idx1");
+  cout << "test data size: " << testSamples.size() << endl;
 
-  train(network.get(), trainingSamples, 1000000);
+  auto network = make_unique<RBM>(INPUT_SIZE, HIDDEN_LAYER_SIZE);
+//  testAccuracy(network.get(), testSamples);
+
+  train(network.get(), trainingSamples, 100000);
   // renderHiddenNodes(network.get());
-  testAccuracy(network.get());
+  testAccuracy(network.get(), testSamples);
 
   cout << "hello world" << endl;
   return 0;
